@@ -1086,10 +1086,10 @@ function SpriteTestPanel({ onClose }: { onClose: () => void }) {
     const rows = Math.ceil(SPRITE_ORDER.length / cols);
     const tileW = 64;
     const tileH = tileW * 0.6;
-    const padding = 40;
+    const padding = 30;
     const labelHeight = 20;
     
-    // Canvas size
+    // Canvas size - account for sprite extending beyond base position
     const canvasWidth = cols * tileW * 2 + padding * 2;
     const canvasHeight = rows * (tileH * 3 + labelHeight) + padding * 2;
     canvas.width = canvasWidth;
@@ -1108,8 +1108,9 @@ function SpriteTestPanel({ onClose }: { onClose: () => void }) {
       const row = Math.floor(index / cols);
       
       // Calculate isometric position for this grid cell
-      const baseX = padding + col * tileW * 1.5 + (cols * tileW * 0.5);
-      const baseY = padding + row * (tileH * 3 + labelHeight) + tileH;
+      // Add offset to account for sprites extending left and up from base position
+      const baseX = padding + tileW + col * tileW * 1.5;
+      const baseY = padding + tileH + row * (tileH * 3 + labelHeight);
       
       // Draw isometric tile outline (diamond shape)
       ctx.strokeStyle = '#3d3d5c';

@@ -83,6 +83,7 @@ export const SPRITE_VERTICAL_OFFSETS: Record<string, number> = {
   police_station: 0.15, // Police station - push down more
   school: 0.10,         // School - push down ~10%
   tennis: 0.10,         // Tennis court - push down ~10%
+  water_tower: -0.52,   // Water tower - push up ~20px
   // Add more as needed
 };
 
