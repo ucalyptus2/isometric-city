@@ -30,7 +30,7 @@ import {
   BudgetIcon,
   SettingsIcon,
 } from './ui/Icons';
-import { USE_TILE_RENDERER, SPRITE_SHEET, getSpriteCoords, BUILDING_TO_SPRITE, SPRITE_VERTICAL_OFFSETS } from '@/lib/renderConfig';
+import { USE_TILE_RENDERER, SPRITE_SHEET, getSpriteCoords, BUILDING_TO_SPRITE, SPRITE_VERTICAL_OFFSETS, SPRITE_ORDER } from '@/lib/renderConfig';
 
 // Import shadcn components
 import { Button } from '@/components/ui/button';
@@ -874,14 +874,41 @@ function StatisticsPanel() {
 
 // Settings Panel
 function SettingsPanel() {
-  const { state, setActivePanel, setDisastersEnabled, newGame } = useGame();
+  const { state, setActivePanel, setDisastersEnabled, newGame, loadState, exportState } = useGame();
   const { disastersEnabled, cityName, gridSize } = state;
   const [newCityName, setNewCityName] = useState(cityName);
   const [showNewGameConfirm, setShowNewGameConfirm] = useState(false);
+  const [importValue, setImportValue] = useState('');
+  const [exportCopied, setExportCopied] = useState(false);
+  const [importError, setImportError] = useState(false);
+  const [importSuccess, setImportSuccess] = useState(false);
+  const [showSpriteTest, setShowSpriteTest] = useState(false);
+  
+  const handleCopyExport = async () => {
+    const exported = exportState();
+    await navigator.clipboard.writeText(exported);
+    setExportCopied(true);
+    setTimeout(() => setExportCopied(false), 2000);
+  };
+  
+  const handleImport = () => {
+    setImportError(false);
+    setImportSuccess(false);
+    if (importValue.trim()) {
+      const success = loadState(importValue.trim());
+      if (success) {
+        setImportSuccess(true);
+        setImportValue('');
+        setTimeout(() => setImportSuccess(false), 2000);
+      } else {
+        setImportError(true);
+      }
+    }
+  };
   
   return (
     <Dialog open={true} onOpenChange={() => setActivePanel('none')}>
-      <DialogContent className="max-w-[400px]">
+      <DialogContent className="max-w-[400px] max-h-[85vh] overflow-y-auto">
         <DialogHeader>
           <DialogTitle>Settings</DialogTitle>
         </DialogHeader>
@@ -933,6 +960,60 @@ function SettingsPanel() {
           
           <Separator />
           
+          <div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3">Export Game</div>
+            <p className="text-muted-foreground text-xs mb-2">Copy your game state to share or backup</p>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={handleCopyExport}
+            >
+              {exportCopied ? '✓ Copied!' : 'Copy Game State'}
+            </Button>
+          </div>
+          
+          <div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3">Import Game</div>
+            <p className="text-muted-foreground text-xs mb-2">Paste a game state to load it</p>
+            <textarea
+              className="w-full h-20 bg-background border border-border rounded-md p-2 text-xs font-mono resize-none focus:outline-none focus:ring-1 focus:ring-ring"
+              placeholder="Paste game state here..."
+              value={importValue}
+              onChange={(e) => {
+                setImportValue(e.target.value);
+                setImportError(false);
+                setImportSuccess(false);
+              }}
+            />
+            {importError && (
+              <p className="text-red-400 text-xs mt-1">Invalid game state. Please check and try again.</p>
+            )}
+            {importSuccess && (
+              <p className="text-green-400 text-xs mt-1">Game loaded successfully!</p>
+            )}
+            <Button
+              variant="outline"
+              className="w-full mt-2"
+              onClick={handleImport}
+              disabled={!importValue.trim()}
+            >
+              Load Game State
+            </Button>
+          </div>
+          
+          <div>
+            <div className="text-[10px] text-muted-foreground uppercase tracking-wider mb-3">Developer Tools</div>
+            <Button
+              variant="outline"
+              className="w-full"
+              onClick={() => setShowSpriteTest(true)}
+            >
+              Open Sprite Test View
+            </Button>
+          </div>
+          
+          <Separator />
+          
           {!showNewGameConfirm ? (
             <Button
               variant="destructive"
@@ -970,6 +1051,142 @@ function SettingsPanel() {
               </div>
             </div>
           )}
+        </div>
+      </DialogContent>
+      
+      {showSpriteTest && (
+        <SpriteTestPanel onClose={() => setShowSpriteTest(false)} />
+      )}
+    </Dialog>
+  );
+}
+
+// Sprite Test Panel
+function SpriteTestPanel({ onClose }: { onClose: () => void }) {
+  const canvasRef = useRef<HTMLCanvasElement>(null);
+  const [spriteSheet, setSpriteSheet] = useState<HTMLImageElement | null>(null);
+  
+  // Load sprite sheet
+  useEffect(() => {
+    const img = new Image();
+    img.onload = () => setSpriteSheet(img);
+    img.src = SPRITE_SHEET.src;
+  }, []);
+  
+  // Draw sprite test grid
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas || !spriteSheet) return;
+    
+    const ctx = canvas.getContext('2d');
+    if (!ctx) return;
+    
+    // Grid setup - arrange sprites in rows of 5
+    const cols = 5;
+    const rows = Math.ceil(SPRITE_ORDER.length / cols);
+    const tileW = 64;
+    const tileH = tileW * 0.6;
+    const padding = 40;
+    const labelHeight = 20;
+    
+    // Canvas size
+    const canvasWidth = cols * tileW * 2 + padding * 2;
+    const canvasHeight = rows * (tileH * 3 + labelHeight) + padding * 2;
+    canvas.width = canvasWidth;
+    canvas.height = canvasHeight;
+    
+    // Clear with dark background
+    ctx.fillStyle = '#1a1a2e';
+    ctx.fillRect(0, 0, canvasWidth, canvasHeight);
+    
+    // Draw grid and sprites
+    const sheetWidth = spriteSheet.naturalWidth || spriteSheet.width;
+    const sheetHeight = spriteSheet.naturalHeight || spriteSheet.height;
+    
+    SPRITE_ORDER.forEach((spriteKey, index) => {
+      const col = index % cols;
+      const row = Math.floor(index / cols);
+      
+      // Calculate isometric position for this grid cell
+      const baseX = padding + col * tileW * 1.5 + (cols * tileW * 0.5);
+      const baseY = padding + row * (tileH * 3 + labelHeight) + tileH;
+      
+      // Draw isometric tile outline (diamond shape)
+      ctx.strokeStyle = '#3d3d5c';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.moveTo(baseX, baseY - tileH / 2);
+      ctx.lineTo(baseX + tileW / 2, baseY);
+      ctx.lineTo(baseX, baseY + tileH / 2);
+      ctx.lineTo(baseX - tileW / 2, baseY);
+      ctx.closePath();
+      ctx.stroke();
+      
+      // Fill with slight color
+      ctx.fillStyle = '#2a2a4a';
+      ctx.fill();
+      
+      // Find a building type that maps to this sprite key
+      const buildingType = Object.entries(BUILDING_TO_SPRITE).find(
+        ([, value]) => value === spriteKey
+      )?.[0] || spriteKey;
+      
+      // Get sprite coordinates
+      const coords = getSpriteCoords(buildingType, sheetWidth, sheetHeight);
+      
+      if (coords) {
+        // Calculate destination size preserving aspect ratio
+        const destWidth = tileW * 1.2;
+        const aspectRatio = coords.sh / coords.sw;
+        const destHeight = destWidth * aspectRatio;
+        
+        // Position: center on tile
+        const drawX = baseX - destWidth / 2;
+        const drawY = baseY + tileH / 2 - destHeight + destHeight * 0.15;
+        
+        // Draw sprite
+        ctx.drawImage(
+          spriteSheet,
+          coords.sx, coords.sy, coords.sw, coords.sh,
+          Math.round(drawX), Math.round(drawY),
+          Math.round(destWidth), Math.round(destHeight)
+        );
+      }
+      
+      // Draw label
+      ctx.fillStyle = '#888';
+      ctx.font = '10px monospace';
+      ctx.textAlign = 'center';
+      ctx.fillText(spriteKey, baseX, baseY + tileH + 16);
+      
+      // Draw index
+      ctx.fillStyle = '#666';
+      ctx.font = '8px monospace';
+      ctx.fillText(`[${index}]`, baseX, baseY + tileH + 26);
+    });
+  }, [spriteSheet]);
+  
+  return (
+    <Dialog open={true} onOpenChange={onClose}>
+      <DialogContent className="max-w-[700px] max-h-[90vh]">
+        <DialogHeader>
+          <DialogTitle>Sprite Test View</DialogTitle>
+          <DialogDescription>
+            All {SPRITE_ORDER.length} sprites from the sprite sheet. Index shown in brackets.
+          </DialogDescription>
+        </DialogHeader>
+        
+        <div className="overflow-auto max-h-[70vh] bg-[#1a1a2e] rounded-lg">
+          <canvas
+            ref={canvasRef}
+            className="mx-auto"
+            style={{ imageRendering: 'pixelated' }}
+          />
+        </div>
+        
+        <div className="text-xs text-muted-foreground space-y-1">
+          <p>Sprite sheet: {SPRITE_SHEET.src} ({SPRITE_SHEET.cols}x{SPRITE_SHEET.rows} grid)</p>
+          <p>Edit offsets in <code className="bg-muted px-1 rounded">src/lib/renderConfig.ts</code> → SPRITE_VERTICAL_OFFSETS</p>
         </div>
       </DialogContent>
     </Dialog>

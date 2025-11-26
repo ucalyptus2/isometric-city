@@ -29,6 +29,8 @@ type GameContextValue = {
   placeAtTile: (x: number, y: number) => void;
   setDisastersEnabled: (enabled: boolean) => void;
   newGame: (name?: string, size?: number) => void;
+  loadState: (stateString: string) => boolean;
+  exportState: () => string;
   hasExistingGame: boolean;
   isSaving: boolean;
 };
@@ -357,6 +359,31 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     setState(fresh);
   }, []);
 
+  const loadState = useCallback((stateString: string): boolean => {
+    try {
+      const parsed = JSON.parse(stateString);
+      // Validate it has essential properties
+      if (parsed && 
+          parsed.grid && 
+          Array.isArray(parsed.grid) &&
+          parsed.gridSize && 
+          typeof parsed.gridSize === 'number' &&
+          parsed.stats &&
+          parsed.stats.money !== undefined &&
+          parsed.stats.population !== undefined) {
+        setState(parsed as GameState);
+        return true;
+      }
+      return false;
+    } catch {
+      return false;
+    }
+  }, []);
+
+  const exportState = useCallback((): string => {
+    return JSON.stringify(state);
+  }, [state]);
+
   const value: GameContextValue = {
     state,
     setTool,
@@ -367,6 +394,8 @@ export function GameProvider({ children }: { children: React.ReactNode }) {
     placeAtTile,
     setDisastersEnabled,
     newGame,
+    loadState,
+    exportState,
     hasExistingGame,
     isSaving,
   };
