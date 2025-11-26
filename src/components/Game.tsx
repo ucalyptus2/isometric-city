@@ -2276,29 +2276,54 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile }: {
     const bottomCorner = { x: x + w / 2, y: y + h };
     const leftCorner = { x: x, y: y + h / 2 };
     
-    // Draw beach strip helper - draws a strip along an edge facing water
+    // Draw beach strip helper - draws a strip along an edge facing water, optionally shortening at corners
     const drawBeachEdge = (
       startX: number, startY: number, 
       endX: number, endY: number,
-      inwardDx: number, inwardDy: number
+      inwardDx: number, inwardDy: number,
+      shortenStart: boolean = false,
+      shortenEnd: boolean = false
     ) => {
       const swWidth = beachWidth;
+      const shortenDist = swWidth * 0.707; // Distance to shorten at corners
+      
+      // Calculate edge direction vector
+      const edgeDx = endX - startX;
+      const edgeDy = endY - startY;
+      const edgeLen = Math.hypot(edgeDx, edgeDy);
+      const edgeDirX = edgeDx / edgeLen;
+      const edgeDirY = edgeDy / edgeLen;
+      
+      // Apply shortening if needed
+      let actualStartX = startX;
+      let actualStartY = startY;
+      let actualEndX = endX;
+      let actualEndY = endY;
+      
+      if (shortenStart && edgeLen > shortenDist * 2) {
+        actualStartX = startX + edgeDirX * shortenDist;
+        actualStartY = startY + edgeDirY * shortenDist;
+      }
+      if (shortenEnd && edgeLen > shortenDist * 2) {
+        actualEndX = endX - edgeDirX * shortenDist;
+        actualEndY = endY - edgeDirY * shortenDist;
+      }
       
       // Draw curb (darker line at outer edge)
       ctx.strokeStyle = curbColor;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(startX, startY);
-      ctx.lineTo(endX, endY);
+      ctx.moveTo(actualStartX, actualStartY);
+      ctx.lineTo(actualEndX, actualEndY);
       ctx.stroke();
       
       // Draw beach fill
       ctx.fillStyle = beachColor;
       ctx.beginPath();
-      ctx.moveTo(startX, startY);
-      ctx.lineTo(endX, endY);
-      ctx.lineTo(endX + inwardDx * swWidth, endY + inwardDy * swWidth);
-      ctx.lineTo(startX + inwardDx * swWidth, startY + inwardDy * swWidth);
+      ctx.moveTo(actualStartX, actualStartY);
+      ctx.lineTo(actualEndX, actualEndY);
+      ctx.lineTo(actualEndX + inwardDx * swWidth, actualEndY + inwardDy * swWidth);
+      ctx.lineTo(actualStartX + inwardDx * swWidth, actualStartY + inwardDy * swWidth);
       ctx.closePath();
       ctx.fill();
     };
@@ -2308,7 +2333,11 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile }: {
     if (north) {
       const inwardDx = 0.707; // ~45 degrees inward
       const inwardDy = 0.707;
-      drawBeachEdge(leftCorner.x, leftCorner.y, topCorner.x, topCorner.y, inwardDx, inwardDy);
+      // Shorten at topCorner if east edge also has beach
+      const shortenAtTop = east;
+      // Shorten at leftCorner if west edge also has beach
+      const shortenAtLeft = west;
+      drawBeachEdge(leftCorner.x, leftCorner.y, topCorner.x, topCorner.y, inwardDx, inwardDy, shortenAtLeft, shortenAtTop);
     }
     
     // East edge beach (top-right edge: topCorner to rightCorner)
@@ -2316,7 +2345,11 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile }: {
     if (east) {
       const inwardDx = -0.707;
       const inwardDy = 0.707;
-      drawBeachEdge(topCorner.x, topCorner.y, rightCorner.x, rightCorner.y, inwardDx, inwardDy);
+      // Shorten at topCorner if north edge also has beach
+      const shortenAtTop = north;
+      // Shorten at rightCorner if south edge also has beach
+      const shortenAtRight = south;
+      drawBeachEdge(topCorner.x, topCorner.y, rightCorner.x, rightCorner.y, inwardDx, inwardDy, shortenAtTop, shortenAtRight);
     }
     
     // South edge beach (bottom-right edge: rightCorner to bottomCorner)
@@ -2324,7 +2357,11 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile }: {
     if (south) {
       const inwardDx = -0.707;
       const inwardDy = -0.707;
-      drawBeachEdge(rightCorner.x, rightCorner.y, bottomCorner.x, bottomCorner.y, inwardDx, inwardDy);
+      // Shorten at rightCorner if east edge also has beach
+      const shortenAtRight = east;
+      // Shorten at bottomCorner if west edge also has beach
+      const shortenAtBottom = west;
+      drawBeachEdge(rightCorner.x, rightCorner.y, bottomCorner.x, bottomCorner.y, inwardDx, inwardDy, shortenAtRight, shortenAtBottom);
     }
     
     // West edge beach (bottom-left edge: bottomCorner to leftCorner)
@@ -2332,49 +2369,109 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile }: {
     if (west) {
       const inwardDx = 0.707;
       const inwardDy = -0.707;
-      drawBeachEdge(bottomCorner.x, bottomCorner.y, leftCorner.x, leftCorner.y, inwardDx, inwardDy);
+      // Shorten at bottomCorner if south edge also has beach
+      const shortenAtBottom = south;
+      // Shorten at leftCorner if north edge also has beach
+      const shortenAtLeft = north;
+      drawBeachEdge(bottomCorner.x, bottomCorner.y, leftCorner.x, leftCorner.y, inwardDx, inwardDy, shortenAtBottom, shortenAtLeft);
     }
     
     // Draw corner beach pieces for adjacent edges that both face water
-    const cornerRadius = beachWidth * 1.2;
+    // Corner pieces connect exactly where the shortened edge strips end
+    const bwWidth = beachWidth;
+    const shortenDist = bwWidth * 0.707;
     ctx.fillStyle = beachColor;
+    
+    // Helper to calculate where a shortened edge's inner endpoint is
+    const getShortenedInnerEndpoint = (
+      cornerX: number, cornerY: number,
+      otherCornerX: number, otherCornerY: number,
+      inwardDx: number, inwardDy: number
+    ) => {
+      // Edge direction FROM otherCorner TO corner (the direction the edge approaches the corner)
+      const edgeDx = cornerX - otherCornerX;
+      const edgeDy = cornerY - otherCornerY;
+      const edgeLen = Math.hypot(edgeDx, edgeDy);
+      const edgeDirX = edgeDx / edgeLen;
+      const edgeDirY = edgeDy / edgeLen;
+      // Shortened outer endpoint (move backwards from corner along edge)
+      const shortenedOuterX = cornerX - edgeDirX * shortenDist;
+      const shortenedOuterY = cornerY - edgeDirY * shortenDist;
+      // Inner endpoint
+      return {
+        x: shortenedOuterX + inwardDx * bwWidth,
+        y: shortenedOuterY + inwardDy * bwWidth
+      };
+    };
     
     // Top corner (where north and east edges meet)
     if (north && east) {
+      const northInner = getShortenedInnerEndpoint(
+        topCorner.x, topCorner.y, leftCorner.x, leftCorner.y,
+        0.707, 0.707
+      );
+      const eastInner = getShortenedInnerEndpoint(
+        topCorner.x, topCorner.y, rightCorner.x, rightCorner.y,
+        -0.707, 0.707
+      );
       ctx.beginPath();
       ctx.moveTo(topCorner.x, topCorner.y);
-      ctx.lineTo(topCorner.x + 0.707 * cornerRadius, topCorner.y + 0.707 * cornerRadius);
-      ctx.lineTo(topCorner.x - 0.707 * cornerRadius, topCorner.y + 0.707 * cornerRadius);
+      ctx.lineTo(northInner.x, northInner.y);
+      ctx.lineTo(eastInner.x, eastInner.y);
       ctx.closePath();
       ctx.fill();
     }
     
     // Right corner (where east and south edges meet)
     if (east && south) {
+      const eastInner = getShortenedInnerEndpoint(
+        rightCorner.x, rightCorner.y, topCorner.x, topCorner.y,
+        -0.707, 0.707
+      );
+      const southInner = getShortenedInnerEndpoint(
+        rightCorner.x, rightCorner.y, bottomCorner.x, bottomCorner.y,
+        -0.707, -0.707
+      );
       ctx.beginPath();
       ctx.moveTo(rightCorner.x, rightCorner.y);
-      ctx.lineTo(rightCorner.x - 0.707 * cornerRadius, rightCorner.y + 0.707 * cornerRadius);
-      ctx.lineTo(rightCorner.x - 0.707 * cornerRadius, rightCorner.y - 0.707 * cornerRadius);
+      ctx.lineTo(eastInner.x, eastInner.y);
+      ctx.lineTo(southInner.x, southInner.y);
       ctx.closePath();
       ctx.fill();
     }
     
     // Bottom corner (where south and west edges meet)
     if (south && west) {
+      const southInner = getShortenedInnerEndpoint(
+        bottomCorner.x, bottomCorner.y, rightCorner.x, rightCorner.y,
+        -0.707, -0.707
+      );
+      const westInner = getShortenedInnerEndpoint(
+        bottomCorner.x, bottomCorner.y, leftCorner.x, leftCorner.y,
+        0.707, -0.707
+      );
       ctx.beginPath();
       ctx.moveTo(bottomCorner.x, bottomCorner.y);
-      ctx.lineTo(bottomCorner.x - 0.707 * cornerRadius, bottomCorner.y - 0.707 * cornerRadius);
-      ctx.lineTo(bottomCorner.x + 0.707 * cornerRadius, bottomCorner.y - 0.707 * cornerRadius);
+      ctx.lineTo(southInner.x, southInner.y);
+      ctx.lineTo(westInner.x, westInner.y);
       ctx.closePath();
       ctx.fill();
     }
     
     // Left corner (where west and north edges meet)
     if (west && north) {
+      const westInner = getShortenedInnerEndpoint(
+        leftCorner.x, leftCorner.y, bottomCorner.x, bottomCorner.y,
+        0.707, -0.707
+      );
+      const northInner = getShortenedInnerEndpoint(
+        leftCorner.x, leftCorner.y, topCorner.x, topCorner.y,
+        0.707, 0.707
+      );
       ctx.beginPath();
       ctx.moveTo(leftCorner.x, leftCorner.y);
-      ctx.lineTo(leftCorner.x + 0.707 * cornerRadius, leftCorner.y - 0.707 * cornerRadius);
-      ctx.lineTo(leftCorner.x + 0.707 * cornerRadius, leftCorner.y + 0.707 * cornerRadius);
+      ctx.lineTo(westInner.x, westInner.y);
+      ctx.lineTo(northInner.x, northInner.y);
       ctx.closePath();
       ctx.fill();
     }
@@ -2448,29 +2545,54 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile }: {
     const bottomCorner = { x: x + w / 2, y: y + h };
     const leftCorner = { x: x, y: y + h / 2 };
     
-    // Draw sidewalk helper - draws a strip along an edge
+    // Draw sidewalk helper - draws a strip along an edge, optionally shortening at corners
     const drawSidewalkEdge = (
       startX: number, startY: number, 
       endX: number, endY: number,
-      inwardDx: number, inwardDy: number
+      inwardDx: number, inwardDy: number,
+      shortenStart: boolean = false,
+      shortenEnd: boolean = false
     ) => {
       const swWidth = sidewalkWidth;
+      const shortenDist = swWidth * 0.707; // Distance to shorten at corners
+      
+      // Calculate edge direction vector
+      const edgeDx = endX - startX;
+      const edgeDy = endY - startY;
+      const edgeLen = Math.hypot(edgeDx, edgeDy);
+      const edgeDirX = edgeDx / edgeLen;
+      const edgeDirY = edgeDy / edgeLen;
+      
+      // Apply shortening if needed
+      let actualStartX = startX;
+      let actualStartY = startY;
+      let actualEndX = endX;
+      let actualEndY = endY;
+      
+      if (shortenStart && edgeLen > shortenDist * 2) {
+        actualStartX = startX + edgeDirX * shortenDist;
+        actualStartY = startY + edgeDirY * shortenDist;
+      }
+      if (shortenEnd && edgeLen > shortenDist * 2) {
+        actualEndX = endX - edgeDirX * shortenDist;
+        actualEndY = endY - edgeDirY * shortenDist;
+      }
       
       // Draw curb (darker line at outer edge)
       ctx.strokeStyle = curbColor;
       ctx.lineWidth = 1.5;
       ctx.beginPath();
-      ctx.moveTo(startX, startY);
-      ctx.lineTo(endX, endY);
+      ctx.moveTo(actualStartX, actualStartY);
+      ctx.lineTo(actualEndX, actualEndY);
       ctx.stroke();
       
       // Draw sidewalk fill
       ctx.fillStyle = sidewalkColor;
       ctx.beginPath();
-      ctx.moveTo(startX, startY);
-      ctx.lineTo(endX, endY);
-      ctx.lineTo(endX + inwardDx * swWidth, endY + inwardDy * swWidth);
-      ctx.lineTo(startX + inwardDx * swWidth, startY + inwardDy * swWidth);
+      ctx.moveTo(actualStartX, actualStartY);
+      ctx.lineTo(actualEndX, actualEndY);
+      ctx.lineTo(actualEndX + inwardDx * swWidth, actualEndY + inwardDy * swWidth);
+      ctx.lineTo(actualStartX + inwardDx * swWidth, actualStartY + inwardDy * swWidth);
       ctx.closePath();
       ctx.fill();
     };
@@ -2480,7 +2602,11 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile }: {
     if (!north) {
       const inwardDx = 0.707; // ~45 degrees inward
       const inwardDy = 0.707;
-      drawSidewalkEdge(leftCorner.x, leftCorner.y, topCorner.x, topCorner.y, inwardDx, inwardDy);
+      // Shorten at topCorner if east edge also has sidewalk
+      const shortenAtTop = !east;
+      // Shorten at leftCorner if west edge also has sidewalk
+      const shortenAtLeft = !west;
+      drawSidewalkEdge(leftCorner.x, leftCorner.y, topCorner.x, topCorner.y, inwardDx, inwardDy, shortenAtLeft, shortenAtTop);
     }
     
     // East edge sidewalk (top-right edge: topCorner to rightCorner)
@@ -2488,7 +2614,11 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile }: {
     if (!east) {
       const inwardDx = -0.707;
       const inwardDy = 0.707;
-      drawSidewalkEdge(topCorner.x, topCorner.y, rightCorner.x, rightCorner.y, inwardDx, inwardDy);
+      // Shorten at topCorner if north edge also has sidewalk
+      const shortenAtTop = !north;
+      // Shorten at rightCorner if south edge also has sidewalk
+      const shortenAtRight = !south;
+      drawSidewalkEdge(topCorner.x, topCorner.y, rightCorner.x, rightCorner.y, inwardDx, inwardDy, shortenAtTop, shortenAtRight);
     }
     
     // South edge sidewalk (bottom-right edge: rightCorner to bottomCorner)
@@ -2496,7 +2626,11 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile }: {
     if (!south) {
       const inwardDx = -0.707;
       const inwardDy = -0.707;
-      drawSidewalkEdge(rightCorner.x, rightCorner.y, bottomCorner.x, bottomCorner.y, inwardDx, inwardDy);
+      // Shorten at rightCorner if east edge also has sidewalk
+      const shortenAtRight = !east;
+      // Shorten at bottomCorner if west edge also has sidewalk
+      const shortenAtBottom = !west;
+      drawSidewalkEdge(rightCorner.x, rightCorner.y, bottomCorner.x, bottomCorner.y, inwardDx, inwardDy, shortenAtRight, shortenAtBottom);
     }
     
     // West edge sidewalk (bottom-left edge: bottomCorner to leftCorner)
@@ -2504,53 +2638,109 @@ function CanvasIsometricGrid({ overlayMode, selectedTile, setSelectedTile }: {
     if (!west) {
       const inwardDx = 0.707;
       const inwardDy = -0.707;
-      drawSidewalkEdge(bottomCorner.x, bottomCorner.y, leftCorner.x, leftCorner.y, inwardDx, inwardDy);
+      // Shorten at bottomCorner if south edge also has sidewalk
+      const shortenAtBottom = !south;
+      // Shorten at leftCorner if north edge also has sidewalk
+      const shortenAtLeft = !north;
+      drawSidewalkEdge(bottomCorner.x, bottomCorner.y, leftCorner.x, leftCorner.y, inwardDx, inwardDy, shortenAtBottom, shortenAtLeft);
     }
     
     // Draw corner sidewalk pieces for non-adjacent edges that meet
-    const cornerRadius = sidewalkWidth * 1.2;
+    // Corner pieces connect exactly where the shortened edge strips end
+    const swWidth = sidewalkWidth;
+    const shortenDist = swWidth * 0.707;
     ctx.fillStyle = sidewalkColor;
+    
+    // Helper to calculate where a shortened edge's inner endpoint is
+    const getShortenedInnerEndpoint = (
+      cornerX: number, cornerY: number,
+      otherCornerX: number, otherCornerY: number,
+      inwardDx: number, inwardDy: number
+    ) => {
+      // Edge direction FROM otherCorner TO corner (the direction the edge approaches the corner)
+      const edgeDx = cornerX - otherCornerX;
+      const edgeDy = cornerY - otherCornerY;
+      const edgeLen = Math.hypot(edgeDx, edgeDy);
+      const edgeDirX = edgeDx / edgeLen;
+      const edgeDirY = edgeDy / edgeLen;
+      // Shortened outer endpoint (move backwards from corner along edge)
+      const shortenedOuterX = cornerX - edgeDirX * shortenDist;
+      const shortenedOuterY = cornerY - edgeDirY * shortenDist;
+      // Inner endpoint
+      return {
+        x: shortenedOuterX + inwardDx * swWidth,
+        y: shortenedOuterY + inwardDy * swWidth
+      };
+    };
     
     // Top corner (where north and east edges meet) - only if both don't have roads
     if (!north && !east) {
+      const northInner = getShortenedInnerEndpoint(
+        topCorner.x, topCorner.y, leftCorner.x, leftCorner.y,
+        0.707, 0.707
+      );
+      const eastInner = getShortenedInnerEndpoint(
+        topCorner.x, topCorner.y, rightCorner.x, rightCorner.y,
+        -0.707, 0.707
+      );
       ctx.beginPath();
       ctx.moveTo(topCorner.x, topCorner.y);
-      ctx.lineTo(topCorner.x + cornerRadius * 0.707, topCorner.y + cornerRadius * 0.707);
-      ctx.lineTo(topCorner.x, topCorner.y + cornerRadius);
-      ctx.lineTo(topCorner.x - cornerRadius * 0.707, topCorner.y + cornerRadius * 0.707);
+      ctx.lineTo(northInner.x, northInner.y);
+      ctx.lineTo(eastInner.x, eastInner.y);
       ctx.closePath();
       ctx.fill();
     }
     
     // Right corner (where east and south edges meet)
     if (!east && !south) {
+      const eastInner = getShortenedInnerEndpoint(
+        rightCorner.x, rightCorner.y, topCorner.x, topCorner.y,
+        -0.707, 0.707
+      );
+      const southInner = getShortenedInnerEndpoint(
+        rightCorner.x, rightCorner.y, bottomCorner.x, bottomCorner.y,
+        -0.707, -0.707
+      );
       ctx.beginPath();
       ctx.moveTo(rightCorner.x, rightCorner.y);
-      ctx.lineTo(rightCorner.x - cornerRadius * 0.707, rightCorner.y + cornerRadius * 0.707);
-      ctx.lineTo(rightCorner.x - cornerRadius, rightCorner.y);
-      ctx.lineTo(rightCorner.x - cornerRadius * 0.707, rightCorner.y - cornerRadius * 0.707);
+      ctx.lineTo(eastInner.x, eastInner.y);
+      ctx.lineTo(southInner.x, southInner.y);
       ctx.closePath();
       ctx.fill();
     }
     
     // Bottom corner (where south and west edges meet)
     if (!south && !west) {
+      const southInner = getShortenedInnerEndpoint(
+        bottomCorner.x, bottomCorner.y, rightCorner.x, rightCorner.y,
+        -0.707, -0.707
+      );
+      const westInner = getShortenedInnerEndpoint(
+        bottomCorner.x, bottomCorner.y, leftCorner.x, leftCorner.y,
+        0.707, -0.707
+      );
       ctx.beginPath();
       ctx.moveTo(bottomCorner.x, bottomCorner.y);
-      ctx.lineTo(bottomCorner.x - cornerRadius * 0.707, bottomCorner.y - cornerRadius * 0.707);
-      ctx.lineTo(bottomCorner.x, bottomCorner.y - cornerRadius);
-      ctx.lineTo(bottomCorner.x + cornerRadius * 0.707, bottomCorner.y - cornerRadius * 0.707);
+      ctx.lineTo(southInner.x, southInner.y);
+      ctx.lineTo(westInner.x, westInner.y);
       ctx.closePath();
       ctx.fill();
     }
     
     // Left corner (where west and north edges meet)
     if (!west && !north) {
+      const westInner = getShortenedInnerEndpoint(
+        leftCorner.x, leftCorner.y, bottomCorner.x, bottomCorner.y,
+        0.707, -0.707
+      );
+      const northInner = getShortenedInnerEndpoint(
+        leftCorner.x, leftCorner.y, topCorner.x, topCorner.y,
+        0.707, 0.707
+      );
       ctx.beginPath();
       ctx.moveTo(leftCorner.x, leftCorner.y);
-      ctx.lineTo(leftCorner.x + cornerRadius * 0.707, leftCorner.y - cornerRadius * 0.707);
-      ctx.lineTo(leftCorner.x + cornerRadius, leftCorner.y);
-      ctx.lineTo(leftCorner.x + cornerRadius * 0.707, leftCorner.y + cornerRadius * 0.707);
+      ctx.lineTo(westInner.x, westInner.y);
+      ctx.lineTo(northInner.x, northInner.y);
       ctx.closePath();
       ctx.fill();
     }
