@@ -16,7 +16,9 @@ import {
 import { getCachedImage } from './imageLoader';
 
 // Cache key for the planes sprite sheet (no red filter needed)
-const AIRPLANE_SPRITE_CACHE_KEY = '/assets/sprites_red_water_new_planes.png';
+const AIRPLANE_SPRITE_CACHE_KEY = typeof window !== 'undefined' && window.location.pathname.includes('/proxy/3000') 
+  ? '/proxy/3000/assets/sprites_red_water_new_planes.png' 
+  : '/assets/sprites_red_water_new_planes.png';
 
 // Cache for last direction to prevent rapid flipping (hysteresis)
 const lastDirectionCache = new WeakMap<any, string>();

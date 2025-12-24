@@ -1,3 +1,14 @@
+// Helper to prefix asset URLs for ngrok proxy
+function getAssetPath(path: string): string {
+  if (typeof window !== 'undefined') {
+    // Browser environment - check if we're behind a proxy
+    if (window.location.pathname.includes('/proxy/3000')) {
+      return `/proxy/3000${path}`;
+    }
+  }
+  return path;
+}
+
 // Rendering configuration
 // ============================================================================
 // SPRITE PACK TYPE DEFINITION
@@ -142,10 +153,10 @@ export interface SpritePack {
 const SPRITE_PACK_SPRITES4: SpritePack = {
   id: 'sprites4',
   name: 'Default Theme',
-  src: '/assets/sprites_red_water_new.png',
-  constructionSrc: '/assets/sprites_red_water_new_construction.png',
-  abandonedSrc: '/assets/sprites_red_water_new_abandoned.png',
-  denseSrc: '/assets/sprites_red_water_new_dense.png',
+  src: getAssetPath('/assets/sprites_red_water_new.png'),
+  constructionSrc: getAssetPath('/assets/sprites_red_water_new_construction.png'),
+  abandonedSrc: getAssetPath('/assets/sprites_red_water_new_abandoned.png'),
+  denseSrc: getAssetPath('/assets/sprites_red_water_new_dense.png'),
   denseVariants: {
     // Residential high density (apartment_high) - Row 1, columns 2, 3, 4 (0-indexed: 1, 2, 3)
     apartment_high: [
@@ -309,7 +320,7 @@ const SPRITE_PACK_SPRITES4: SpritePack = {
     apartment_high: 0.90,
   },
   // Modern sprite sheet configuration (same layout as dense: 5 cols, 6 rows)
-  modernSrc: '/assets/sprites_red_water_new_modern.png',
+  modernSrc: getAssetPath('/assets/sprites_red_water_new_modern.png'),
   modernVariants: {
     // High density residential (apartment_high) - Row 1, columns 1-2 (0-indexed: row 0, cols 0-1)
     apartment_high: [
@@ -334,8 +345,8 @@ const SPRITE_PACK_SPRITES4: SpritePack = {
     apartment_high: 0.90,
   },
   // Parks sprite sheet configuration (same offsets/scaling approach as dense)
-  parksSrc: '/assets/sprites_red_water_new_parks.png',
-  parksConstructionSrc: '/assets/sprites_red_water_new_parks_construction.png',
+  parksSrc: getAssetPath('/assets/sprites_red_water_new_parks.png'),
+  parksConstructionSrc: getAssetPath('/assets/sprites_red_water_new_parks_construction.png'),
   parksCols: 5,
   parksRows: 6,
   parksBuildings: {
@@ -423,7 +434,7 @@ const SPRITE_PACK_SPRITES4: SpritePack = {
     mountain_lodge: -0.55,  // shifted down 0.3 from normal -0.85
   },
   // Farms sprite sheet configuration (variants for low-density industrial)
-  farmsSrc: '/assets/sprites_red_water_new_farm.png',
+  farmsSrc: getAssetPath('/assets/sprites_red_water_new_farm.png'),
   farmsCols: 5,
   farmsRows: 6,
   farmsVariants: {
@@ -445,7 +456,7 @@ const SPRITE_PACK_SPRITES4: SpritePack = {
   farmsHorizontalOffsets: {},
   farmsScales: {},
   // Shops sprite sheet configuration (variants for shop_small and shop_medium)
-  shopsSrc: '/assets/sprites_red_water_new_shops.png',
+  shopsSrc: getAssetPath('/assets/sprites_red_water_new_shops.png'),
   shopsCols: 5,
   shopsRows: 6,
   shopsVariants: {
@@ -479,7 +490,7 @@ const SPRITE_PACK_SPRITES4: SpritePack = {
     shop_medium: 0.90, // Scale down 10% total
   },
   // Stations sprite sheet configuration (rail station variants)
-  stationsSrc: '/assets/sprites_red_water_new_stations.png',
+  stationsSrc: getAssetPath('/assets/sprites_red_water_new_stations.png'),
   stationsCols: 5,
   stationsRows: 6,
   stationsVariants: {
@@ -552,15 +563,15 @@ const SPRITE_PACK_SPRITES4_HARRY: SpritePack = {
   ...SPRITE_PACK_SPRITES4,
   id: 'sprites4-harry',
   name: 'Harry Potter Theme',
-  src: '/assets/sprites_red_water_new_harry.png',
-  denseSrc: '/assets/sprites_red_water_new_harry_dense.png',
-  modernSrc: '/assets/sprites_red_water_new_harry_dense.png',
-  constructionSrc: '/assets/sprites_red_water_new_harry_construction.png',
+  src: getAssetPath('/assets/sprites_red_water_new_harry.png'),
+  denseSrc: getAssetPath('/assets/sprites_red_water_new_harry_dense.png'),
+  modernSrc: getAssetPath('/assets/sprites_red_water_new_harry_dense.png'),
+  constructionSrc: getAssetPath('/assets/sprites_red_water_new_harry_construction.png'),
   // Note: Uses same construction, abandoned, dense, and parks sheets as the default
   // If you have Harry Potter themed variants for those, update these paths:
-  // constructionSrc: '/assets/sprites_red_water_new_harry_construction.png',
-  // abandonedSrc: '/assets/sprites_red_water_new_harry_abandoned.png',
-  // denseSrc: '/assets/sprites_red_water_new_harry_dense.png',
+  // constructionSrc: getAssetPath('/assets/sprites_red_water_new_harry_construction.png'),
+  // abandonedSrc: getAssetPath('/assets/sprites_red_water_new_harry_abandoned.png'),
+  // denseSrc: getAssetPath('/assets/sprites_red_water_new_harry_dense.png'),
 };
 
 // ============================================================================
@@ -571,12 +582,10 @@ const SPRITE_PACK_SPRITES4_CHINA: SpritePack = {
   ...SPRITE_PACK_SPRITES4,
   id: 'sprites4-china',
   name: 'Chinese Theme',
-  src: '/assets/sprites_red_water_new_china.png',
-  // Note: Uses same construction, abandoned, dense, and parks sheets as the default
-  // If you have Chinese themed variants for those, update these paths:
-  // constructionSrc: '/assets/sprites_red_water_new_china_construction.png',
-  // abandonedSrc: '/assets/sprites_red_water_new_china_abandoned.png',
-  // denseSrc: '/assets/sprites_red_water_new_china_dense.png',
+  src: getAssetPath('/assets/sprites_red_water_new_china.png'),
+  // constructionSrc: getAssetPath('/assets/sprites_red_water_new_china_construction.png'),
+  // abandonedSrc: getAssetPath('/assets/sprites_red_water_new_china_abandoned.png'),
+  // denseSrc: getAssetPath('/assets/sprites_red_water_new_china_dense.png'),
 };
 
 // ============================================================================
