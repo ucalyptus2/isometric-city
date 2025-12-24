@@ -76,7 +76,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
     <html lang="en" className={`dark ${playfair.variable} ${dmSans.variable}`}>
       <head>
         <meta name="mobile-web-app-capable" content="yes" />
-        <link rel="apple-touch-icon" href="/assets/buildings/residential.png" />
+        <link rel="apple-touch-icon" href="/proxy/3000/assets/buildings/residential.png" />
       </head>
       <body className="bg-background text-foreground antialiased font-sans overflow-hidden">{children}<Analytics /></body>
     </html>
