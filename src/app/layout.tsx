@@ -60,6 +60,17 @@ export const metadata: Metadata = {
   formatDetection: {
     telephone: false,
   },
+  icons: {
+    icon: [
+      {
+        url: typeof window !== 'undefined' && window.location.pathname.includes('/proxy/3000') 
+          ? '/proxy/3000/icon.png' 
+          : '/icon.png',
+        sizes: '32x32',
+        type: 'image/png',
+      },
+    ],
+  },
 };
 
 export const viewport: Viewport = {
